@@ -144,6 +144,9 @@ module = [
     "audiocraft.*",
     "demucs.*",
     "scipy.*",
+    "librosa.*",
+    "pyrubberband.*",
+    "fadtk.*",
 ]
 ignore_missing_imports = true
 

@@ -135,20 +135,18 @@ class QualityEvaluator:
             )
 
         # Convert to numpy if needed
-        if isinstance(seg1, torch.Tensor):
-            seg1 = seg1.cpu().numpy()
-        if isinstance(seg2, torch.Tensor):
-            seg2 = seg2.cpu().numpy()
+        arr1: np.ndarray = seg1.cpu().numpy() if isinstance(seg1, torch.Tensor) else seg1
+        arr2: np.ndarray = seg2.cpu().numpy() if isinstance(seg2, torch.Tensor) else seg2
 
         # Ensure 1D (mono) for analysis
-        if seg1.ndim == 2:
-            seg1 = seg1.mean(axis=0)
-        if seg2.ndim == 2:
-            seg2 = seg2.mean(axis=0)
+        if arr1.ndim == 2:
+            arr1 = arr1.mean(axis=0)
+        if arr2.ndim == 2:
+            arr2 = arr2.mean(axis=0)
 
         # Extract boundary regions
-        end_region = seg1[-boundary_samples:]
-        start_region = seg2[:boundary_samples]
+        end_region = arr1[-boundary_samples:]
+        start_region = arr2[:boundary_samples]
 
         # 1. MFCC Similarity
         try:
@@ -205,23 +203,22 @@ class QualityEvaluator:
         Returns:
             Dictionary with quality metrics
         """
-        if isinstance(audio, torch.Tensor):
-            audio = audio.cpu().numpy()
+        arr: np.ndarray = audio.cpu().numpy() if isinstance(audio, torch.Tensor) else audio
 
-        if audio.ndim == 2:
-            audio = audio.mean(axis=0)
+        if arr.ndim == 2:
+            arr = arr.mean(axis=0)
 
         metrics = {}
 
         # RMS energy statistics
         window_samples = sr  # 1 second windows
-        num_windows = len(audio) // window_samples
+        num_windows = len(arr) // window_samples
         rms_values = []
 
         for i in range(num_windows):
             start = i * window_samples
             end = start + window_samples
-            rms = np.sqrt(np.mean(audio[start:end] ** 2))
+            rms = np.sqrt(np.mean(arr[start:end] ** 2))
             rms_values.append(rms)
 
         if rms_values:
@@ -231,13 +228,13 @@ class QualityEvaluator:
             metrics["rms_std"] = float(np.std(rms_values))
 
         # Peak detection
-        metrics["peak"] = float(np.max(np.abs(audio)))
+        metrics["peak"] = float(np.max(np.abs(arr)))
         metrics["clipping"] = metrics["peak"] > 0.99
 
         # Silence detection
         silence_threshold = 0.005
-        silent_samples = np.sum(np.abs(audio) < silence_threshold)
-        metrics["silence_ratio"] = float(silent_samples / len(audio))
+        silent_samples = np.sum(np.abs(arr) < silence_threshold)
+        metrics["silence_ratio"] = float(silent_samples / len(arr))
 
         return metrics
 
@@ -338,6 +335,7 @@ class QualityOptimizedGenerator:
             f"Quality threshold not met after {self._max_attempts} attempts, "
             f"using best attempt (score={best_score:.2f})"
         )
+        assert best_segment is not None  # guaranteed after at least one loop iteration
         return best_segment, best_metrics
 
     async def _generate_segment(

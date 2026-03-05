@@ -37,11 +37,11 @@ def detect_tempo(audio: np.ndarray, sr: int) -> float:
         if audio.ndim == 2:
             audio = audio.mean(axis=0)
 
-        tempo, _ = librosa.beat.beat_track(y=audio, sr=sr)
+        tempo_result, _ = librosa.beat.beat_track(y=audio, sr=sr)
         # Handle both old and new librosa return types
-        if hasattr(tempo, "__iter__"):
-            tempo = float(tempo[0]) if len(tempo) > 0 else 120.0
-        return float(tempo)
+        if isinstance(tempo_result, np.ndarray):
+            return float(tempo_result[0]) if len(tempo_result) > 0 else 120.0
+        return float(tempo_result)
     except ImportError:
         logger.warning("librosa not available, returning default tempo")
         return 120.0
