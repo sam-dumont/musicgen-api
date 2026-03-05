@@ -5,7 +5,6 @@ and utility functions for beat detection and crossfading.
 """
 
 import logging
-import math
 import os
 
 import numpy as np

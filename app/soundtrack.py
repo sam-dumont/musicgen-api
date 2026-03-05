@@ -268,7 +268,7 @@ class SoundtrackGenerator:
                 loop = asyncio.get_event_loop()
                 audio_result = await loop.run_in_executor(
                     None,
-                    lambda: model.generate([prompt]),
+                    lambda m=model: m.generate([prompt]),
                 )
                 audio = audio_result[0]
             else:
@@ -287,7 +287,7 @@ class SoundtrackGenerator:
                 loop = asyncio.get_event_loop()
                 audio_result = await loop.run_in_executor(
                     None,
-                    lambda cond=conditioning, sr=sample_rate: model.generate_continuation(
+                    lambda cond=conditioning, sr=sample_rate, m=model: m.generate_continuation(
                         cond.unsqueeze(0),
                         sr,
                         [prompt],
@@ -344,7 +344,7 @@ class SoundtrackGenerator:
             cond = conditioning_audio.unsqueeze(0) if conditioning_audio.dim() == 2 else conditioning_audio
             audio_result = await loop.run_in_executor(
                 None,
-                lambda c=cond, sr=sample_rate: model.generate_continuation(
+                lambda c=cond, sr=sample_rate, m=model: m.generate_continuation(
                     c, sr, [prompt], progress=False
                 ),
             )
@@ -376,7 +376,7 @@ class SoundtrackGenerator:
                 loop = asyncio.get_event_loop()
                 audio_result = await loop.run_in_executor(
                     None,
-                    lambda c=cond, sr=sample_rate: model.generate_continuation(
+                    lambda c=cond, sr=sample_rate, m=model: m.generate_continuation(
                         c.unsqueeze(0), sr, [prompt], progress=False
                     ),
                 )
@@ -397,7 +397,7 @@ class SoundtrackGenerator:
                 loop = asyncio.get_event_loop()
                 audio_result = await loop.run_in_executor(
                     None,
-                    lambda cond=conditioning, sr=sample_rate: model.generate_continuation(
+                    lambda cond=conditioning, sr=sample_rate, m=model: m.generate_continuation(
                         cond.unsqueeze(0),
                         sr,
                         [prompt],
