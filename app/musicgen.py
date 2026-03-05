@@ -220,7 +220,15 @@ class MusicGenWrapper:
         num_segments = (total_duration + effective_segment - 1) // effective_segment
 
         while current_pos < total_duration:
-            segment_duration = min(MAX_SEGMENT_DURATION, total_duration - current_pos)
+            remaining = total_duration - current_pos
+            segment_duration = min(MAX_SEGMENT_DURATION, remaining)
+
+            # For continuation segments, duration must exceed OVERLAP_DURATION
+            # because generate_continuation treats conditioning audio as part of
+            # the total duration (assert start_offset < max_gen_len).
+            # Generate a longer segment and trim the final output afterward.
+            if segment_num > 0 and segment_duration <= OVERLAP_DURATION:
+                segment_duration = OVERLAP_DURATION + 2
 
             logger.info(
                 f"Generating segment {segment_num + 1}/{num_segments} "
@@ -269,7 +277,14 @@ class MusicGenWrapper:
                 await progress_callback(progress)
 
         # Crossfade and concatenate segments
-        return self._crossfade_segments(segments)
+        result = self._crossfade_segments(segments)
+
+        # Trim to requested duration (last segment may overshoot)
+        target_samples = int(total_duration * model.sample_rate)
+        if result.shape[-1] > target_samples:
+            result = result[:, :target_samples]
+
+        return result
 
     def _find_zero_crossing(
         self, audio: torch.Tensor, target: int, window: int = 256
