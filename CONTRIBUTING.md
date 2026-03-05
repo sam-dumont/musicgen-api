@@ -7,6 +7,9 @@ git clone https://github.com/sam-dumont/musicgen-api.git
 cd musicgen-api
 make dev        # Install all dependencies (requires uv)
 make run-reload # Start dev server with auto-reload
+
+# Enable pre-push hook (runs lint + typecheck before push)
+git config core.hooksPath .githooks
 ```
 
 ## Running Tests

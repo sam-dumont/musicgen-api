@@ -259,9 +259,9 @@ class DemucsWrapper:
                 addr = socket.getaddrinfo(hostname, None)[0][4][0]
                 ip = ipaddress.ip_address(addr)
                 if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
-                    raise ValueError(f"URLs pointing to private/internal addresses are not allowed")
+                    raise ValueError("URLs pointing to private/internal addresses are not allowed")
             except socket.gaierror:
-                raise ValueError(f"Could not resolve hostname: {hostname}")
+                raise ValueError(f"Could not resolve hostname: {hostname}") from None
 
         ext = Path(parsed.path).suffix or ".wav"
         input_path = self._output_dir / f"{job_id}_input{ext}"

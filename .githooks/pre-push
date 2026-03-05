@@ -1,0 +1,3 @@
+#!/bin/sh
+echo "Running lint and typecheck before push..."
+make lint && make typecheck
