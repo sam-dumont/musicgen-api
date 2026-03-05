@@ -1,0 +1,33 @@
+# MusicGen model - small is mono, medium gives better quality
+# musicgen_model = "facebook/musicgen-medium"
+
+# GPU configuration
+# gpu_enabled = true
+# gpu_count   = 1
+
+# Storage
+# storage_class    = "standard"
+# model_cache_size = "15Gi"
+# data_size        = "20Gi"
+
+# Ingress - set domain to enable, leave commented out to skip ingress
+# domain        = "musicgen.example.com"
+# ingress_class = "nginx"
+# tls_enabled   = true
+# tls_issuer    = "letsencrypt-prod"
+
+# Audio processing
+# use_stem_aware_crossfade = false
+# use_quality_loop         = true
+# max_regen_attempts       = 3
+
+# Resource limits
+# cpu_request    = "2"
+# cpu_limit      = "4"
+# memory_request = "6Gi"
+# memory_limit   = "10Gi"
+
+# Node scheduling
+# node_selector = {
+#   "nvidia.com/gpu.present" = "true"
+# }

@@ -1,0 +1,28 @@
+# Core ML dependencies - pinned versions for compatibility
+torch==2.1.0
+torchaudio==2.1.0
+
+# AudioCraft - installed without xformers on macOS
+# On Linux/Docker with CUDA, xformers will be installed separately
+# Note: audiocraft requires av==11.0.0 which builds from source
+# using ffmpeg dev libraries installed in the Dockerfile
+audiocraft==1.3.0
+
+# Demucs for stem separation
+demucs==4.0.1
+
+# Web framework
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.6
+
+# Data validation
+pydantic>=2.5.0
+
+# Monitoring
+prometheus-client>=0.19.0
+
+# Audio processing
+scipy>=1.11.0
+numpy<2.0.0  # numpy 2.x has compatibility issues with some packages
+librosa>=0.10.0  # Beat detection for crossfade alignment in soundtracks

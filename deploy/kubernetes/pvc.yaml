@@ -1,0 +1,28 @@
+# Persistent volume for cached models (MusicGen, Demucs).
+# Set storageClassName to match your cluster's storage provisioner.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: musicgen-models
+  namespace: musicgen
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ""
+  resources:
+    requests:
+      storage: 15Gi
+---
+# Persistent volume for input/output data.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: musicgen-data
+  namespace: musicgen
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ""
+  resources:
+    requests:
+      storage: 20Gi

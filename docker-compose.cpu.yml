@@ -1,0 +1,8 @@
+# CPU-only override — removes GPU reservation
+# Usage: docker compose -f docker-compose.yml -f docker-compose.cpu.yml up
+services:
+  musicgen-api:
+    deploy:
+      resources:
+        reservations:
+          devices: []

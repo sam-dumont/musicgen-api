@@ -1,0 +1,27 @@
+# Example Ingress resource. Update the host and TLS secret to match your domain.
+# Requires an nginx ingress controller and cert-manager with a
+# ClusterIssuer named "letsencrypt-prod".
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: musicgen
+  namespace: musicgen
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - musicgen.example.com
+      secretName: musicgen-tls
+  rules:
+    - host: musicgen.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: musicgen
+                port:
+                  number: 8000

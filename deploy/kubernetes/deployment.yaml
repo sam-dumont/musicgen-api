@@ -1,0 +1,112 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: musicgen
+  namespace: musicgen
+  labels:
+    app: musicgen
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: musicgen
+  template:
+    metadata:
+      labels:
+        app: musicgen
+    spec:
+      # If your image is in a private registry, create an imagePullSecret and
+      # uncomment the following lines:
+      # imagePullSecrets:
+      #   - name: ghcr-credentials
+
+      securityContext:
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+
+      containers:
+        - name: musicgen
+          image: ghcr.io/sam-dumont/musicgen-api:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+
+          # --- Resource requests and limits ---
+          resources:
+            requests:
+              cpu: "2"
+              memory: 6Gi
+            limits:
+              cpu: "4"
+              memory: 10Gi
+              nvidia.com/gpu: 1
+
+          # --- Environment variables ---
+          env:
+            - name: API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: musicgen-api-key
+                  key: api-key
+
+            - name: OUTPUT_DIR
+              value: /data/output
+
+            - name: PYTORCH_CUDA_ALLOC_CONF
+              value: "expandable_segments:True"
+
+            - name: NVIDIA_VISIBLE_DEVICES
+              value: all
+
+            - name: NVIDIA_DRIVER_CAPABILITIES
+              value: all
+
+            # Audio processing configuration
+            - name: MUSICGEN_MODEL
+              value: "facebook/musicgen-small"
+
+            - name: USE_STEM_AWARE_CROSSFADE
+              value: "false"
+
+            - name: USE_QUALITY_LOOP
+              value: "true"
+
+            - name: MAX_REGEN_ATTEMPTS
+              value: "3"
+
+          # --- Volume mounts ---
+          volumeMounts:
+            - name: models
+              mountPath: /home/appuser/.cache
+            - name: data
+              mountPath: /data
+
+          # --- Health probes ---
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+      volumes:
+        - name: models
+          persistentVolumeClaim:
+            claimName: musicgen-models
+        - name: data
+          persistentVolumeClaim:
+            claimName: musicgen-data
