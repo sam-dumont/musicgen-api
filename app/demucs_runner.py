@@ -237,11 +237,32 @@ class DemucsWrapper:
 
         Returns:
             Path to downloaded file
+
+        Raises:
+            ValueError: If URL scheme is not http/https or hostname resolves to private IP
         """
         import asyncio
+        import ipaddress
+        import socket
         import urllib.request
 
         parsed = urlparse(url)
+
+        # Only allow http/https
+        if parsed.scheme not in ("http", "https"):
+            raise ValueError(f"Only http/https URLs are allowed, got: {parsed.scheme}")
+
+        # Block requests to private/internal IPs (SSRF protection)
+        hostname = parsed.hostname
+        if hostname:
+            try:
+                addr = socket.getaddrinfo(hostname, None)[0][4][0]
+                ip = ipaddress.ip_address(addr)
+                if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                    raise ValueError(f"URLs pointing to private/internal addresses are not allowed")
+            except socket.gaierror:
+                raise ValueError(f"Could not resolve hostname: {hostname}")
+
         ext = Path(parsed.path).suffix or ".wav"
         input_path = self._output_dir / f"{job_id}_input{ext}"
 
