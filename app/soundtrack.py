@@ -103,11 +103,17 @@ class SoundtrackGenerator:
             # Add extra duration to compensate for crossfade loss and fade out
             # Each scene (except last) loses CROSSFADE_DURATION to crossfade
             # Last scene gets FADE_BUFFER extra for video fade out
+            # Cap padded duration to MAX_SEGMENT_DURATION to avoid triggering
+            # sliding window for tiny overflows (which creates destructive tail segments)
             is_last_scene = (i == total_scenes - 1)
             if is_last_scene:
-                scene_duration = int(scene_duration + FADE_BUFFER)
+                padding = min(FADE_BUFFER, MAX_SEGMENT_DURATION - scene_duration)
+                padding = max(0, padding)
+                scene_duration = int(scene_duration + padding)
             else:
-                scene_duration = int(scene_duration + CROSSFADE_DURATION)
+                padding = min(CROSSFADE_DURATION, MAX_SEGMENT_DURATION - scene_duration)
+                padding = max(0, padding)
+                scene_duration = int(scene_duration + padding)
 
             # Generate scene audio
             if i == 0:
@@ -231,6 +237,15 @@ class SoundtrackGenerator:
         Returns:
             Generated audio tensor
         """
+        # If duration is only slightly over MAX_SEGMENT_DURATION, cap it to avoid
+        # creating a useless tiny tail segment in the sliding window. The tiny tail
+        # (e.g. 5s with 4s context = 1s new audio) gets destroyed by the 8s crossfade
+        # in musicgen._crossfade_segments, causing beat grid destruction and volume drops.
+        overlap_duration = 8  # Same as musicgen.py's OVERLAP_DURATION
+        if duration > MAX_SEGMENT_DURATION and duration <= MAX_SEGMENT_DURATION + overlap_duration:
+            logger.info(f"  Capping scene duration from {duration}s to {MAX_SEGMENT_DURATION}s (avoids tiny tail segment)")
+            duration = MAX_SEGMENT_DURATION
+
         if duration <= MAX_SEGMENT_DURATION:
             # Short scene: single generation (use direct model call like _generate_long)
             import asyncio
@@ -328,6 +343,12 @@ class SoundtrackGenerator:
         """
         sample_rate = self._musicgen.sample_rate
         overlap_duration = 8  # Same as musicgen.py
+
+        # If duration is only slightly over MAX_SEGMENT_DURATION, cap it to avoid
+        # creating a useless tiny tail segment (same fix as _generate_scene_audio)
+        if duration > MAX_SEGMENT_DURATION and duration <= MAX_SEGMENT_DURATION + overlap_duration:
+            logger.info(f"  Capping continuation duration from {duration}s to {MAX_SEGMENT_DURATION}s (avoids tiny tail segment)")
+            duration = MAX_SEGMENT_DURATION
 
         if duration <= MAX_SEGMENT_DURATION:
             # Short scene: single continuation (use direct model call like _generate_long)
