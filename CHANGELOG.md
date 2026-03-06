@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.3](https://github.com/sam-dumont/musicgen-api/compare/v1.0.2...v1.0.3) (2026-03-06)
+
+
+### Bug Fixes
+
+* remove transition bridge causing audio artifacts at scene boundaries ([#14](https://github.com/sam-dumont/musicgen-api/issues/14)) ([166089b](https://github.com/sam-dumont/musicgen-api/commit/166089b899d66ecfdf28bba89d93b1b470507d67))
+
 ## [1.0.2](https://github.com/sam-dumont/musicgen-api/compare/v1.0.1...v1.0.2) (2026-03-05)
 
 
