@@ -271,11 +271,18 @@ class SoundtrackGenerator:
         overlap_duration = 8
 
         while current_pos < duration:
-            seg_duration = min(MAX_SEGMENT_DURATION, duration - current_pos)
+            if segment_num == 0:
+                seg_duration = min(MAX_SEGMENT_DURATION, duration - current_pos)
+            else:
+                # Request extra to compensate for trimming the conditioning echo
+                seg_duration = min(MAX_SEGMENT_DURATION, (duration - current_pos) + overlap_duration)
+                # Must exceed overlap for generate_continuation assertion
+                if seg_duration <= overlap_duration:
+                    seg_duration = overlap_duration + 2
             seg_duration = max(MIN_SEGMENT_DURATION, seg_duration)
 
             if segment_num == 0:
-                # First segment - generate fresh (use direct model call like _generate_long)
+                # First segment - generate fresh
                 logger.info(f"  Generating segment {segment_num + 1} at pos {current_pos}s ({seg_duration}s)...")
                 import asyncio
                 model = self._musicgen.model
@@ -286,16 +293,16 @@ class SoundtrackGenerator:
                     lambda m=model: m.generate([prompt]),  # type: ignore[misc]
                 )
                 audio = audio_result[0]
+                segments.append(audio)
+                current_pos += seg_duration
             else:
                 # Continuation - use last N seconds as context
-                # Context must be shorter than segment duration (MusicGen requirement)
                 context_duration = min(overlap_duration, seg_duration - 1)
                 logger.info(f"  Generating segment {segment_num + 1} at pos {current_pos}s ({seg_duration}s, {context_duration}s context)...")
                 prev_audio = segments[-1]
                 context_samples = int(context_duration * sample_rate)
                 conditioning = prev_audio[:, -context_samples:]
 
-                # Use same approach as simple _generate_long (no temperature/cfg_coef)
                 import asyncio
                 model = self._musicgen.model
                 model.set_generation_params(duration=seg_duration)
@@ -309,19 +316,16 @@ class SoundtrackGenerator:
                         progress=False,
                     ),
                 )
-                audio = audio_result[0]
+                # Trim the conditioning echo from the start
+                trim_samples = int(context_duration * sample_rate)
+                trimmed = audio_result[0][:, trim_samples:]
+                segments.append(trimmed)
+                current_pos += trimmed.shape[-1] / sample_rate
 
-            segments.append(audio)
             segment_num += 1
 
-            # Move position (same logic as musicgen.py)
-            if segment_num == 1:
-                current_pos += MAX_SEGMENT_DURATION
-            else:
-                current_pos += MAX_SEGMENT_DURATION - overlap_duration
-
-        # Use musicgen's crossfade (with beat alignment) instead of our simple one
-        return self._musicgen._crossfade_segments(segments)
+        # Use musicgen's crossfade (with beat alignment and shorter crossfade duration)
+        return self._musicgen._crossfade_segments(segments, crossfade_duration=CROSSFADE_DURATION)
 
     async def _generate_scene_with_continuation(
         self,
@@ -351,17 +355,20 @@ class SoundtrackGenerator:
             duration = MAX_SEGMENT_DURATION
 
         if duration <= MAX_SEGMENT_DURATION:
-            # Short scene: single continuation (use direct model call like _generate_long)
-            # Limit conditioning to be shorter than duration (MusicGen requirement)
-            max_context = duration - 1
-            if conditioning_audio.shape[-1] > max_context * sample_rate:
+            # Short scene: single continuation
+            # Request extra duration to compensate for trimming the conditioning echo
+            request_duration = min(MAX_SEGMENT_DURATION, duration + overlap_duration)
+            # Limit conditioning to be shorter than request_duration (MusicGen requirement)
+            max_context = request_duration - 1
+            cond_samples = conditioning_audio.shape[-1]
+            if cond_samples > max_context * sample_rate:
                 conditioning_audio = conditioning_audio[:, -int(max_context * sample_rate):]
-            logger.info(f"  Short scene continuation ({duration}s)...")
+            cond_duration = conditioning_audio.shape[-1] / sample_rate
+            logger.info(f"  Short scene continuation ({request_duration}s, {cond_duration:.1f}s context)...")
             import asyncio
             model = self._musicgen.model
-            model.set_generation_params(duration=duration)
+            model.set_generation_params(duration=request_duration)
             loop = asyncio.get_event_loop()
-            # Ensure proper tensor shape [batch, channels, samples]
             cond = conditioning_audio.unsqueeze(0) if conditioning_audio.dim() == 2 else conditioning_audio
             audio_result = await loop.run_in_executor(
                 None,
@@ -369,7 +376,14 @@ class SoundtrackGenerator:
                     c, sr, [prompt], progress=False
                 ),
             )
-            return audio_result[0]
+            # Trim the conditioning echo from the start
+            trim_samples = conditioning_audio.shape[-1]
+            trimmed = audio_result[0][:, trim_samples:]
+            # Trim to requested duration
+            target_samples = int(duration * sample_rate)
+            if trimmed.shape[-1] > target_samples:
+                trimmed = trimmed[:, :target_samples]
+            return trimmed
 
         # Long scene: sliding window with continuation (same as musicgen.py)
         logger.info(f"  Long scene with continuation: {duration}s using sliding window")
@@ -379,18 +393,17 @@ class SoundtrackGenerator:
         segment_num = 0
 
         while current_pos < duration:
-            seg_duration = min(MAX_SEGMENT_DURATION, duration - current_pos)
-            seg_duration = max(MIN_SEGMENT_DURATION, seg_duration)
-
             if segment_num == 0:
-                # First segment - continue from previous scene's audio (use direct model call like _generate_long)
-                # Limit conditioning to be shorter than segment duration (MusicGen requirement)
+                # First segment: request extra to compensate for trim
+                seg_duration = min(MAX_SEGMENT_DURATION, (duration - current_pos) + overlap_duration)
+                # Limit conditioning to be shorter than seg_duration (MusicGen requirement)
                 max_context = seg_duration - 1
                 if conditioning_audio.shape[-1] > max_context * sample_rate:
                     cond = conditioning_audio[:, -int(max_context * sample_rate):]
                 else:
                     cond = conditioning_audio
-                logger.info(f"  Generating segment {segment_num + 1} at pos {current_pos}s ({seg_duration}s, from prev scene)...")
+                cond_duration = cond.shape[-1] / sample_rate
+                logger.info(f"  Generating segment {segment_num + 1} at pos {current_pos}s ({seg_duration}s, {cond_duration:.1f}s from prev scene)...")
                 import asyncio
                 model = self._musicgen.model
                 model.set_generation_params(duration=seg_duration)
@@ -401,17 +414,23 @@ class SoundtrackGenerator:
                         c.unsqueeze(0), sr, [prompt], progress=False
                     ),
                 )
-                audio = audio_result[0]
+                # Trim the conditioning echo from the start
+                trim_samples = cond.shape[-1]
+                trimmed = audio_result[0][:, trim_samples:]
+                segments.append(trimmed)
+                current_pos += trimmed.shape[-1] / sample_rate
             else:
                 # Subsequent - continue from within this scene
-                # Context must be shorter than segment duration (MusicGen requirement)
+                seg_duration = min(MAX_SEGMENT_DURATION, (duration - current_pos) + overlap_duration)
+                if seg_duration <= overlap_duration:
+                    seg_duration = overlap_duration + 2
+                seg_duration = max(MIN_SEGMENT_DURATION, seg_duration)
                 context_duration = min(overlap_duration, seg_duration - 1)
                 logger.info(f"  Generating segment {segment_num + 1} at pos {current_pos}s ({seg_duration}s, {context_duration}s context)...")
                 prev_audio = segments[-1]
                 context_samples = int(context_duration * sample_rate)
                 conditioning = prev_audio[:, -context_samples:]
 
-                # Use same approach as simple _generate_long (no temperature/cfg_coef)
                 import asyncio
                 model = self._musicgen.model
                 model.set_generation_params(duration=seg_duration)
@@ -425,19 +444,16 @@ class SoundtrackGenerator:
                         progress=False,
                     ),
                 )
-                audio = audio_result[0]
+                # Trim the conditioning echo from the start
+                trim_samples = int(context_duration * sample_rate)
+                trimmed = audio_result[0][:, trim_samples:]
+                segments.append(trimmed)
+                current_pos += trimmed.shape[-1] / sample_rate
 
-            segments.append(audio)
             segment_num += 1
 
-            # Move position (same logic as musicgen.py)
-            if segment_num == 1:
-                current_pos += MAX_SEGMENT_DURATION
-            else:
-                current_pos += MAX_SEGMENT_DURATION - overlap_duration
-
-        # Use musicgen's crossfade (with beat alignment)
-        return self._musicgen._crossfade_segments(segments)
+        # Use musicgen's crossfade (with beat alignment and shorter crossfade duration)
+        return self._musicgen._crossfade_segments(segments, crossfade_duration=CROSSFADE_DURATION)
 
     async def _generate_continuation_segment(
         self,
