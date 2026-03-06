@@ -1,7 +1,7 @@
 # MusicGen + Demucs API Dockerfile
 # Multi-stage build for smaller final image
 
-FROM pytorch/pytorch:2.1.0-cuda11.8-cudnn8-runtime AS base
+FROM pytorch/pytorch:2.8.0-cuda12.6-cudnn9-runtime AS base
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -36,8 +36,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install system-wide using pip so it's accessible by all users
 RUN pip install uv==0.5.30
 
-# Use Python 3.11 (compatible with torch 2.1.0 wheels)
-ENV UV_PYTHON=3.11
+# Use the Python version bundled with the base image
+ENV UV_PYTHON=3.12
 
 # Create non-root user
 RUN useradd -m -u 1001 -s /bin/bash appuser
