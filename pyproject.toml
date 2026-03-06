@@ -126,6 +126,7 @@ override-dependencies = [
     "spacy>=3.8.0",  # Override audiocraft's yanked spacy==3.7.6
     "torchtext>=0.16.0; sys_platform == 'never'",  # Discontinued, no py3.12 wheels, audiocraft never imports it
     "llvmlite>=0.42.0",  # 0.41.x doesn't build on Python 3.12
+    "numba>=0.59.0",  # 0.58.x doesn't support Python 3.12
 ]
 
 [tool.ruff]
