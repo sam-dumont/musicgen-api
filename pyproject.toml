@@ -124,6 +124,7 @@ override-dependencies = [
     "torchvision>=0.23.0",  # Override audiocraft's torchvision==0.16.0
     "wheel>=0.46.2",  # Fix CVE path traversal in wheel unpack
     "spacy>=3.8.0",  # Override audiocraft's yanked spacy==3.7.6
+    "torchtext>=0.16.0; sys_platform == 'never'",  # Discontinued, no py3.12 wheels, audiocraft never imports it
 ]
 
 [tool.ruff]
