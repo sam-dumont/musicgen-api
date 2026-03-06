@@ -29,8 +29,8 @@ classifiers = [
 
 dependencies = [
     # Core ML - pinned for compatibility
-    "torch==2.1.0",
-    "torchaudio==2.1.0",
+    "torch==2.8.0",
+    "torchaudio==2.8.0",
 
     # Audio processing
     "scipy>=1.11.0",
@@ -58,7 +58,7 @@ musicgen = [
 ]
 # xformers for faster attention on Linux/CUDA (not available on macOS)
 cuda = [
-    "xformers>=0.0.22; sys_platform == 'linux'",
+    "xformers>=0.0.29; sys_platform == 'linux'",
 ]
 # Demucs for stem separation
 demucs = [
@@ -112,11 +112,21 @@ environments = ["sys_platform == 'darwin'", "sys_platform == 'linux'"]
 # Override problematic dependencies from audiocraft
 # - xformers: not available on macOS (requires CUDA)
 # - av==11.0.0: incompatible with ffmpeg 8.x on macOS, use newer version
-# - transformers: pin to version compatible with torch 2.1.0
+# - torch/torchaudio: override audiocraft's torch==2.1.0 pin
+# - transformers: upgrade to fix security vulnerabilities
+# - torchvision/torchtext: override audiocraft's pins to match torch 2.8.0
 override-dependencies = [
-    "xformers>=0.0.22; sys_platform == 'linux'",
+    "xformers>=0.0.29; sys_platform == 'linux'",
     "av>=12.0.0",  # Override av==11.0.0 which doesn't build with ffmpeg 8.x
-    "transformers>=4.31.0,<4.40.0",  # Compatible with torch 2.1.0
+    "torch==2.8.0",
+    "torchaudio==2.8.0",
+    "transformers>=4.53.0",
+    "torchvision>=0.23.0",  # Override audiocraft's torchvision==0.16.0
+    "wheel>=0.46.2",  # Fix CVE path traversal in wheel unpack
+    "spacy>=3.8.0",  # Override audiocraft's yanked spacy==3.7.6
+    "torchtext>=0.16.0; sys_platform == 'never'",  # Discontinued, no py3.12 wheels, audiocraft never imports it
+    "llvmlite>=0.42.0",  # 0.41.x doesn't build on Python 3.12
+    "numba>=0.59.0",  # 0.58.x doesn't support Python 3.12
 ]
 
 [tool.ruff]

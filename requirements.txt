@@ -1,6 +1,6 @@
 # Core ML dependencies - pinned versions for compatibility
-torch==2.1.0
-torchaudio==2.1.0
+torch==2.8.0
+torchaudio==2.8.0
 
 # AudioCraft - installed without xformers on macOS
 # On Linux/Docker with CUDA, xformers will be installed separately
