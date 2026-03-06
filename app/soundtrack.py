@@ -19,10 +19,9 @@ TEMPERATURE = 0.85  # sampling temperature
 CFG_COEF = 3.0  # classifier-free guidance coefficient
 MAX_SEGMENT_DURATION = 30  # MusicGen max duration per segment
 MIN_SEGMENT_DURATION = 5  # MusicGen minimum duration (avoid assertion errors)
-OVERLAP_DURATION = 5  # seconds of overlap for continuation
+OVERLAP_DURATION = 8  # seconds of overlap for continuation (matches musicgen.py)
 CROSSFADE_DURATION = 2.0  # crossfade duration in seconds
 FADE_BUFFER = 5  # extra seconds at end for video fade out
-TRANSITION_BRIDGE_DURATION = 8  # seconds for mood transition bridges
 
 
 class SoundtrackGenerator:
@@ -121,28 +120,10 @@ class SoundtrackGenerator:
                 scene_audio = await self._generate_scene_audio(scene_prompt, scene_duration)
                 scene_audios.append(scene_audio)
             else:
-                # Subsequent scenes: generate transition bridge first if moods differ
-                prev_mood = scenes[i - 1].get("mood") or ""
-                curr_mood = mood
-
-                # Get conditioning from previous audio
+                # Subsequent scenes: continue from previous scene's audio
                 context_samples = int(OVERLAP_DURATION * sample_rate)
                 prev_audio = scene_audios[-1]
                 conditioning_audio = prev_audio[:, -context_samples:]
-
-                # Generate transition bridge if moods are different
-                if prev_mood != curr_mood and (prev_mood or curr_mood):
-                    bridge_prompt = self._build_transition_prompt(base_prompt, prev_mood, curr_mood)
-                    logger.info(f"  Generating transition bridge: {prev_mood[:20]}... -> {curr_mood[:20]}...")
-
-                    bridge_audio = await self._generate_scene_with_continuation(
-                        bridge_prompt, TRANSITION_BRIDGE_DURATION, conditioning_audio
-                    )
-                    scene_audios.append(bridge_audio)
-
-                    # Use bridge's end as conditioning for the actual scene
-                    conditioning_audio = bridge_audio[:, -context_samples:]
-
                 scene_audio = await self._generate_scene_with_continuation(
                     scene_prompt, scene_duration, conditioning_audio
                 )
@@ -174,27 +155,6 @@ class SoundtrackGenerator:
 
         logger.info(f"Soundtrack saved to {output_path}")
         return str(output_path)
-
-    def _build_transition_prompt(
-        self, base_prompt: str, from_mood: str, to_mood: str
-    ) -> str:
-        """Build a prompt for transitioning between two moods.
-
-        Args:
-            base_prompt: Base musical description
-            from_mood: The mood we're transitioning from
-            to_mood: The mood we're transitioning to
-
-        Returns:
-            Prompt that blends both moods for a smooth transition
-        """
-        if from_mood and to_mood:
-            return f"smoothly transitioning from {from_mood} to {to_mood}, {base_prompt}"
-        elif to_mood:
-            return f"gradually becoming {to_mood}, {base_prompt}"
-        elif from_mood:
-            return f"{from_mood} slowly fading, {base_prompt}"
-        return base_prompt
 
     def _build_scene_prompt(self, base_prompt: str, scene: dict[str, Any]) -> str:
         """Combine base prompt with scene mood/prompt.
@@ -241,8 +201,7 @@ class SoundtrackGenerator:
         # creating a useless tiny tail segment in the sliding window. The tiny tail
         # (e.g. 5s with 4s context = 1s new audio) gets destroyed by the 8s crossfade
         # in musicgen._crossfade_segments, causing beat grid destruction and volume drops.
-        overlap_duration = 8  # Same as musicgen.py's OVERLAP_DURATION
-        if duration > MAX_SEGMENT_DURATION and duration <= MAX_SEGMENT_DURATION + overlap_duration:
+        if duration > MAX_SEGMENT_DURATION and duration <= MAX_SEGMENT_DURATION + OVERLAP_DURATION:
             logger.info(f"  Capping scene duration from {duration}s to {MAX_SEGMENT_DURATION}s (avoids tiny tail segment)")
             duration = MAX_SEGMENT_DURATION
 
@@ -267,8 +226,7 @@ class SoundtrackGenerator:
         segment_num = 0
         sample_rate = self._musicgen.sample_rate
 
-        # Same overlap as musicgen.py (8s)
-        overlap_duration = 8
+        overlap_duration = OVERLAP_DURATION
 
         while current_pos < duration:
             if segment_num == 0:
@@ -346,7 +304,7 @@ class SoundtrackGenerator:
             Generated audio tensor
         """
         sample_rate = self._musicgen.sample_rate
-        overlap_duration = 8  # Same as musicgen.py
+        overlap_duration = OVERLAP_DURATION
 
         # If duration is only slightly over MAX_SEGMENT_DURATION, cap it to avoid
         # creating a useless tiny tail segment (same fix as _generate_scene_audio)
@@ -454,53 +412,6 @@ class SoundtrackGenerator:
 
         # Use musicgen's crossfade (with beat alignment and shorter crossfade duration)
         return self._musicgen._crossfade_segments(segments, crossfade_duration=CROSSFADE_DURATION)
-
-    async def _generate_continuation_segment(
-        self,
-        prompt: str,
-        duration: int,
-        prev_audio: torch.Tensor,
-        sample_rate: int,
-        segment_num: int,
-    ) -> torch.Tensor:
-        """Generate a continuation segment with proper trimming.
-
-        MusicGen continuation includes conditioning-influenced audio at the start.
-        We trim this portion and request extra duration to compensate.
-        This fixes the "going back in time" issue during crossfades.
-
-        Args:
-            prompt: Text prompt for generation
-            duration: Desired output duration in seconds
-            prev_audio: Previous audio to continue from
-            sample_rate: Sample rate in Hz
-            segment_num: Segment number for logging
-
-        Returns:
-            Generated audio tensor with conditioning influence trimmed
-        """
-        # Get conditioning from end of previous audio (use same 8s as simple /generate)
-        context_duration = min(8, prev_audio.shape[-1] // sample_rate)
-        context_samples = int(context_duration * sample_rate)
-        conditioning = prev_audio[:, -context_samples:]
-
-        # Request the full duration (no trimming - matches simple /generate behavior)
-        request_duration = min(MAX_SEGMENT_DURATION, duration)
-        request_duration = max(MIN_SEGMENT_DURATION, request_duration)
-
-        logger.info(
-            f"  Generating segment {segment_num} ({request_duration}s, "
-            f"context={context_duration:.1f}s, no trimming)..."
-        )
-
-        audio = await self._musicgen.generate_continuation_async(
-            prompt, int(request_duration), conditioning, TEMPERATURE, CFG_COEF
-        )
-
-        # No trimming - let crossfade handle the transition naturally
-        # (matching the simple /generate approach which works)
-
-        return audio
 
     def _crossfade_segments(
         self,
