@@ -18,7 +18,8 @@ logger = logging.getLogger(__name__)
 # Default to musicgen-small for fast generation with good quality
 MUSICGEN_MODEL = os.getenv("MUSICGEN_MODEL", "facebook/musicgen-small")
 MAX_SEGMENT_DURATION = 30  # MusicGen max duration per segment
-OVERLAP_DURATION = 8  # Overlap for smooth transitions (increased from 5 for better context)
+OVERLAP_DURATION = 8  # Conditioning context for generate_continuation()
+CROSSFADE_DURATION = 2  # Crossfade overlap in seconds (shorter since segments are already continuous)
 STYLE_CONDITION_DURATION = 4.0  # Duration of style conditioning audio (1.5-4.5s recommended)
 
 
@@ -221,14 +222,15 @@ class MusicGenWrapper:
 
         while current_pos < total_duration:
             remaining = total_duration - current_pos
-            segment_duration = min(MAX_SEGMENT_DURATION, remaining)
 
-            # For continuation segments, duration must exceed OVERLAP_DURATION
-            # because generate_continuation treats conditioning audio as part of
-            # the total duration (assert start_offset < max_gen_len).
-            # Generate a longer segment and trim the final output afterward.
-            if segment_num > 0 and segment_duration <= OVERLAP_DURATION:
-                segment_duration = OVERLAP_DURATION + 2
+            if segment_num == 0:
+                segment_duration = min(MAX_SEGMENT_DURATION, remaining)
+            else:
+                # Request extra to compensate for trimming the conditioning echo
+                segment_duration = min(MAX_SEGMENT_DURATION, remaining + OVERLAP_DURATION)
+                # Must exceed OVERLAP_DURATION for generate_continuation assertion
+                if segment_duration <= OVERLAP_DURATION:
+                    segment_duration = OVERLAP_DURATION + 2
 
             logger.info(
                 f"Generating segment {segment_num + 1}/{num_segments} "
@@ -245,10 +247,11 @@ class MusicGenWrapper:
                     None,
                     lambda: model.generate([prompt]),
                 )
+                segments.append(audio[0])
+                current_pos += segment_duration
             else:
                 # Subsequent segments - use end of previous as conditioning
                 prev_audio = segments[-1]
-                # Take last few seconds for conditioning
                 condition_samples = int(OVERLAP_DURATION * model.sample_rate)
                 condition_audio = prev_audio[:, -condition_samples:]
 
@@ -262,14 +265,18 @@ class MusicGenWrapper:
                     ),
                 )
 
-            segments.append(audio[0])
-            segment_num += 1
+                # Trim the conditioning echo from the start of the continuation.
+                # generate_continuation() includes the conditioning audio in its output,
+                # so without trimming we'd crossfade nearly identical audio → double beats.
+                trim_samples = int(OVERLAP_DURATION * model.sample_rate)
+                trimmed = audio[0][:, trim_samples:]
+                segments.append(trimmed)
 
-            # Move position (account for overlap)
-            if segment_num == 1:
-                current_pos += MAX_SEGMENT_DURATION
-            else:
-                current_pos += MAX_SEGMENT_DURATION - OVERLAP_DURATION
+                # Advance by the amount of new audio produced
+                new_audio_duration = trimmed.shape[-1] / model.sample_rate
+                current_pos += new_audio_duration
+
+            segment_num += 1
 
             # Report progress
             if progress_callback:
@@ -373,6 +380,7 @@ class MusicGenWrapper:
         self,
         segments: list[torch.Tensor],
         use_beat_aligned: bool = True,
+        crossfade_duration: float = CROSSFADE_DURATION,
     ) -> torch.Tensor:
         """Crossfade and concatenate audio segments with equal-power crossfade.
 
@@ -382,6 +390,7 @@ class MusicGenWrapper:
         Args:
             segments: List of audio tensors
             use_beat_aligned: Whether to align crossfades to beat boundaries
+            crossfade_duration: Duration of crossfade overlap in seconds
 
         Returns:
             Concatenated audio tensor
@@ -391,7 +400,7 @@ class MusicGenWrapper:
 
         assert self._model is not None
         sample_rate = self._model.sample_rate
-        default_overlap_samples = int(OVERLAP_DURATION * sample_rate)
+        default_overlap_samples = int(crossfade_duration * sample_rate)
         result = segments[0]
 
         for i, segment in enumerate(segments[1:], 1):
