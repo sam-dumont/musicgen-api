@@ -13,13 +13,8 @@ services:
       resources:
         reservations:
           devices:
-            # Request all available GPUs - the app handles device assignment:
-            # - MusicGen runs on the GPU set by CUDA_VISIBLE_DEVICES (default: first GPU)
-            # - ACE-Step runs on the GPU set by ACESTEP_CUDA_DEVICE_ID (default: 0)
-            # For dual-GPU setups (e.g. T1000 + GTX 1070), set ACESTEP_CUDA_DEVICE_ID=1
-            # in .env to assign ACE-Step to the second GPU.
             - driver: nvidia
-              count: all
+              count: 1
               capabilities: [gpu]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]

@@ -1,28 +1,87 @@
-# Docker Compose override for budget dual-GPU setup (T1000 + GTX 1070)
+# Docker Compose for budget dual-GPU setup (T1000 + GTX 1070)
 #
-# Usage: docker compose -f docker-compose.yml -f docker-compose.budget-gpu.yml up
+# Runs two separate services so each model gets its own GPU via CUDA_VISIBLE_DEVICES.
+# ACE-Step only supports GPU selection via CUDA_VISIBLE_DEVICES (process-wide),
+# so separate containers are needed for true multi-GPU isolation.
+#
+# Usage: docker compose -f docker-compose.budget-gpu.yml up
 #
 # GPU assignment:
-#   GPU 0 (T1000 8GB):  MusicGen-small (~1.5GB) + Demucs (~1GB)
-#   GPU 1 (GTX 1070 8GB): ACE-Step turbo + 0.6B LM (~5-6GB)
+#   GPU 0 (T1000 8GB):    MusicGen-small + Demucs (port 8000)
+#   GPU 1 (GTX 1070 8GB): ACE-Step turbo + 0.6B LM (port 8001)
 #
 # The GTX 1070 gets ACE-Step because it has more compute (6.5 vs 2.5 TFLOPS)
 # which matters for the heavier DiT model. MusicGen-small fits easily on the T1000.
 #
-# Adjust ACESTEP_CUDA_DEVICE_ID if your GPU order differs.
-# Check with: nvidia-smi -L
+# Adjust GPU indices if your GPU order differs. Check with: nvidia-smi -L
+
 services:
-  musicgen-api:
+  # ─── MusicGen + Demucs on GPU 0 (T1000) ───
+  musicgen:
+    image: ghcr.io/sam-dumont/musicgen-api:latest
+    # build: .
+    ports:
+      - "8000:8000"
+    env_file: .env
     environment:
-      # MusicGen on GPU 0 (T1000) - small model fits easily in 8GB
+      NVIDIA_VISIBLE_DEVICES: "0"
       MUSICGEN_MODEL: facebook/musicgen-small
-      # ACE-Step on GPU 1 (GTX 1070) - more compute for DiT
-      ACESTEP_CUDA_DEVICE_ID: "1"
+      ACESTEP_ENABLED: "false"
+    volumes:
+      - model-cache-musicgen:/home/appuser/.cache
+      - output-data:/data/output
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["0"]
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+  # ─── ACE-Step on GPU 1 (GTX 1070) ───
+  acestep:
+    image: ghcr.io/sam-dumont/musicgen-api:latest
+    # build: .
+    ports:
+      - "8001:8000"
+    env_file: .env
+    environment:
+      NVIDIA_VISIBLE_DEVICES: "1"
+      # Pascal GPU: no bf16, no Flash Attention, use PyTorch backend
+      ACE_PIPELINE_DTYPE: float16
       ACESTEP_CONFIG_PATH: acestep-v15-turbo
       ACESTEP_LM_MODEL_PATH: acestep-5Hz-lm-0.6B
       ACESTEP_LM_BACKEND: pt
       ACESTEP_INIT_LLM: "true"
-      # Pascal GPU workaround: no bf16 support
-      ACE_PIPELINE_DTYPE: float16
+      ACESTEP_ENABLED: "true"
       # Memory optimization
       PYTORCH_CUDA_ALLOC_CONF: expandable_segments:True
+    volumes:
+      - model-cache-acestep:/home/appuser/.cache
+      - output-data:/data/output
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["1"]
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    restart: unless-stopped
+
+volumes:
+  model-cache-musicgen:
+  model-cache-acestep:
+  output-data:
