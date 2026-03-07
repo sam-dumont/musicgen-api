@@ -18,6 +18,7 @@ class JobType(str, Enum):
     GENERATE = "generate"
     GENERATE_SOUNDTRACK = "generate_soundtrack"
     SEPARATE = "separate"
+    GENERATE_ACESTEP = "generate_acestep"
 
 
 class JobStatus(str, Enum):
@@ -70,6 +71,7 @@ class JobQueue:
         self._generation_times: list[float] = []
         self._soundtrack_times: list[float] = []
         self._separation_times: list[float] = []
+        self._acestep_times: list[float] = []
 
     def register_handler(
         self,
@@ -167,6 +169,11 @@ class JobQueue:
                 if self._separation_times
                 else None
             ),
+            "avg_acestep_time_seconds": (
+                sum(self._acestep_times) / len(self._acestep_times)
+                if self._acestep_times
+                else None
+            ),
         }
 
     async def _worker(self, worker_id: int) -> None:
@@ -214,6 +221,8 @@ class JobQueue:
                     self._soundtrack_times.append(duration)
                 elif job.job_type == JobType.SEPARATE:
                     self._separation_times.append(duration)
+                elif job.job_type == JobType.GENERATE_ACESTEP:
+                    self._acestep_times.append(duration)
 
                 self._completed_jobs += 1
                 logger.info(f"Job {job_id} completed in {duration:.2f}s")

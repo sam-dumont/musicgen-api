@@ -1,4 +1,4 @@
-"""FastAPI application for MusicGen + Demucs API."""
+"""FastAPI application for MusicGen + ACE-Step + Demucs API."""
 
 import asyncio
 import logging
@@ -12,9 +12,11 @@ from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse, Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
+from app.acestep_runner import acestep
 from app.demucs_runner import demucs
 from app.job_queue import Job, JobType, job_queue
 from app.models import (
+    ACEStepRequest,
     GenerateRequest,
     HealthResponse,
     JobResponse,
@@ -139,6 +141,32 @@ async def handle_soundtrack_job(job: Job) -> list[str]:
     return [f"/files/{Path(output_path).name}"]
 
 
+async def handle_acestep_job(job: Job) -> list[str]:
+    """Handle ACE-Step music generation job.
+
+    Args:
+        job: Job to process
+
+    Returns:
+        List of result URLs
+    """
+    params = job.params
+    output_path = await acestep.generate(
+        prompt=params["prompt"],
+        duration=params.get("duration", 30.0),
+        lyrics=params.get("lyrics", ""),
+        instrumental=params.get("instrumental", True),
+        infer_steps=params.get("infer_steps", 8),
+        guidance_scale=params.get("guidance_scale", 7.0),
+        seed=params.get("seed", -1),
+        audio_format=params.get("audio_format", "wav"),
+        thinking=params.get("thinking", True),
+        job_id=job.id,
+        progress_callback=lambda p: update_job_progress(job, p),
+    )
+    return [f"/files/{Path(output_path).name}"]
+
+
 async def update_job_progress(job: Job, progress: float) -> None:
     """Update job progress.
 
@@ -164,6 +192,7 @@ async def lifespan(app: FastAPI):
     job_queue.register_handler(JobType.GENERATE, handle_generate_job)
     job_queue.register_handler(JobType.GENERATE_SOUNDTRACK, handle_soundtrack_job)
     job_queue.register_handler(JobType.SEPARATE, handle_separate_job)
+    job_queue.register_handler(JobType.GENERATE_ACESTEP, handle_acestep_job)
 
     # Start job queue
     await job_queue.start()
@@ -188,6 +217,7 @@ async def lifespan(app: FastAPI):
     # Unload models
     musicgen.unload_model()
     demucs.unload_model()
+    acestep.unload_model()
     logger.info("Models unloaded")
 
 
@@ -225,9 +255,9 @@ async def cleanup_old_files(max_age_hours: int = 24):
 
 
 app = FastAPI(
-    title="MusicGen + Demucs API",
-    description="AI Music Generation and Stem Separation API",
-    version="1.0.0",
+    title="MusicGen + ACE-Step + Demucs API",
+    description="AI Music Generation (MusicGen & ACE-Step 1.5) and Stem Separation API",
+    version="1.1.0",
     lifespan=lifespan,
 )
 
@@ -246,6 +276,7 @@ async def health():
         models_loaded={
             "musicgen": musicgen.is_loaded,
             "demucs": demucs.is_loaded,
+            "acestep": acestep.is_loaded,
         },
     )
 
@@ -266,6 +297,40 @@ async def generate(request: GenerateRequest):
             "prompt": request.prompt,
             "duration": request.duration,
             "mood": request.mood,
+        },
+    )
+    return JobResponse(job_id=job.id, status=JobStatus.QUEUED)
+
+
+@app.post(
+    "/generate/acestep",
+    response_model=JobResponse,
+    dependencies=[Depends(verify_api_key)],
+)
+async def generate_acestep(request: ACEStepRequest):
+    """Generate music using ACE-Step 1.5.
+
+    Full-song generation with vocals, lyrics, and advanced music understanding.
+    Optimized for budget GPUs (8GB VRAM) with turbo mode (8 diffusion steps).
+
+    Args:
+        request: ACE-Step generation request
+
+    Returns:
+        Job response with job_id and status
+    """
+    job = await job_queue.enqueue(
+        JobType.GENERATE_ACESTEP,
+        {
+            "prompt": request.prompt,
+            "duration": request.duration,
+            "lyrics": request.lyrics,
+            "instrumental": request.instrumental,
+            "infer_steps": request.infer_steps,
+            "guidance_scale": request.guidance_scale,
+            "seed": request.seed,
+            "audio_format": request.audio_format,
+            "thinking": request.thinking,
         },
     )
     return JobResponse(job_id=job.id, status=JobStatus.QUEUED)

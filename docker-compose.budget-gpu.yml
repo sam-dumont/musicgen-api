@@ -1,0 +1,28 @@
+# Docker Compose override for budget dual-GPU setup (T1000 + GTX 1070)
+#
+# Usage: docker compose -f docker-compose.yml -f docker-compose.budget-gpu.yml up
+#
+# GPU assignment:
+#   GPU 0 (T1000 8GB):  MusicGen-small (~1.5GB) + Demucs (~1GB)
+#   GPU 1 (GTX 1070 8GB): ACE-Step turbo + 0.6B LM (~5-6GB)
+#
+# The GTX 1070 gets ACE-Step because it has more compute (6.5 vs 2.5 TFLOPS)
+# which matters for the heavier DiT model. MusicGen-small fits easily on the T1000.
+#
+# Adjust ACESTEP_CUDA_DEVICE_ID if your GPU order differs.
+# Check with: nvidia-smi -L
+services:
+  musicgen-api:
+    environment:
+      # MusicGen on GPU 0 (T1000) - small model fits easily in 8GB
+      MUSICGEN_MODEL: facebook/musicgen-small
+      # ACE-Step on GPU 1 (GTX 1070) - more compute for DiT
+      ACESTEP_CUDA_DEVICE_ID: "1"
+      ACESTEP_CONFIG_PATH: acestep-v15-turbo
+      ACESTEP_LM_MODEL_PATH: acestep-5Hz-lm-0.6B
+      ACESTEP_LM_BACKEND: pt
+      ACESTEP_INIT_LLM: "true"
+      # Pascal GPU workaround: no bf16 support
+      ACE_PIPELINE_DTYPE: float16
+      # Memory optimization
+      PYTORCH_CUDA_ALLOC_CONF: expandable_segments:True

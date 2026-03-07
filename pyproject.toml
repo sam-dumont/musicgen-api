@@ -4,15 +4,15 @@ build-backend = "hatchling.build"
 
 [project]
 name = "musicgen-api"
-version = "1.0.4"
-description = "AI Music Generation and Stem Separation API using MusicGen and Demucs"
+version = "1.1.0"
+description = "AI Music Generation API using MusicGen, ACE-Step 1.5, and Demucs"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"
 authors = [
     { name = "Sam Dumont" }
 ]
-keywords = ["musicgen", "demucs", "audio", "ai", "music-generation", "stem-separation"]
+keywords = ["musicgen", "ace-step", "demucs", "audio", "ai", "music-generation", "stem-separation"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Web Environment",
@@ -56,6 +56,10 @@ dependencies = [
 musicgen = [
     "audiocraft @ git+https://github.com/facebookresearch/audiocraft.git",
 ]
+# ACE-Step 1.5 for full-song AI music generation
+acestep = [
+    "ace-step @ git+https://github.com/ace-step/ACE-Step-1.5.git",
+]
 # xformers for faster attention on Linux/CUDA (not available on macOS)
 cuda = [
     "xformers>=0.0.29; sys_platform == 'linux'",
@@ -75,12 +79,14 @@ quality = [
 # Full local development (everything except CUDA-specific)
 all = [
     "musicgen-api[musicgen]",
+    "musicgen-api[acestep]",
     "musicgen-api[demucs]",
     "musicgen-api[audio]",
 ]
 # Full production (with CUDA acceleration and quality metrics)
 prod = [
     "musicgen-api[musicgen]",
+    "musicgen-api[acestep]",
     "musicgen-api[demucs]",
     "musicgen-api[cuda]",
     "musicgen-api[audio]",
@@ -152,6 +158,7 @@ module = [
     "torch.*",
     "torchaudio.*",
     "audiocraft.*",
+    "acestep.*",
     "demucs.*",
     "scipy.*",
     "librosa.*",

@@ -1,4 +1,4 @@
-# MusicGen + Demucs API Dockerfile
+# MusicGen + ACE-Step + Demucs API Dockerfile
 # Multi-stage build for smaller final image
 
 FROM pytorch/pytorch:2.8.0-cuda12.6-cudnn9-runtime AS base
@@ -70,9 +70,10 @@ COPY --chown=appuser:appuser app/ ./app/
 
 # Optional: Pre-download models at build time (as appuser)
 # Uncomment the following to include models in the image (increases image size significantly)
-# This reduces startup time but increases image size by ~5GB
+# This reduces startup time but increases image size by ~5GB+
 # RUN uv run python -c "from audiocraft.models import MusicGen; MusicGen.get_pretrained('facebook/musicgen-small')"
 # RUN uv run python -c "from demucs.pretrained import get_model; get_model('htdemucs')"
+# ACE-Step models are downloaded automatically on first use (~10GB)
 
 # Expose port
 EXPOSE 8000

@@ -139,6 +139,38 @@ class HealthResponse(BaseModel):
     models_loaded: dict[str, bool]
 
 
+class ACEStepRequest(BaseModel):
+    """Request model for ACE-Step music generation."""
+
+    prompt: str = Field(
+        ..., min_length=1, max_length=512, description="Music description (caption)"
+    )
+    duration: float = Field(
+        default=30.0, ge=10.0, le=240.0, description="Duration in seconds (10-240)"
+    )
+    lyrics: str = Field(
+        default="", max_length=5000, description="Lyrics text (empty for instrumental)"
+    )
+    instrumental: bool = Field(default=True, description="Force instrumental generation")
+    infer_steps: int = Field(
+        default=8, ge=1, le=200, description="Diffusion steps (8 for turbo, 32-64 for base)"
+    )
+    guidance_scale: float = Field(default=7.0, ge=1.0, le=30.0, description="Conditioning strength")
+    seed: int = Field(default=-1, description="Random seed (-1 for random)")
+    audio_format: str = Field(default="wav", description="Output format: wav, flac, mp3")
+    thinking: bool = Field(
+        default=True, description="Enable LM reasoning (requires LLM to be loaded)"
+    )
+
+    @field_validator("audio_format")
+    @classmethod
+    def validate_audio_format(cls, v: str) -> str:
+        allowed = {"wav", "flac", "mp3", "ogg"}
+        if v not in allowed:
+            raise ValueError(f"audio_format must be one of {allowed}")
+        return v
+
+
 class MetricsResponse(BaseModel):
     """Response model for metrics."""
 
@@ -149,3 +181,4 @@ class MetricsResponse(BaseModel):
     avg_generation_time_seconds: float | None
     avg_soundtrack_time_seconds: float | None
     avg_separation_time_seconds: float | None
+    avg_acestep_time_seconds: float | None
