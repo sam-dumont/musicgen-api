@@ -129,6 +129,19 @@ override-dependencies = [
     "numba>=0.59.0",  # 0.58.x doesn't support Python 3.12
 ]
 
+# Use the CUDA 12.6 PyTorch index on Linux.
+# The default PyPI wheel is cu128 which drops sm_60/sm_61 (Pascal) support.
+# cu126 includes sm_50/sm_60 so GTX 1070 and similar cards still work.
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu126", marker = "sys_platform == 'linux'" }
+torchaudio = { index = "pytorch-cu126", marker = "sys_platform == 'linux'" }
+torchvision = { index = "pytorch-cu126", marker = "sys_platform == 'linux'" }
+
 [tool.ruff]
 target-version = "py311"
 line-length = 100
