@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.7](https://github.com/sam-dumont/musicgen-api/compare/v1.0.6...v1.0.7) (2026-03-10)
+
+
+### Bug Fixes
+
+* **ci:** build Docker image in release-please workflow ([#24](https://github.com/sam-dumont/musicgen-api/issues/24)) ([a8b38af](https://github.com/sam-dumont/musicgen-api/commit/a8b38afb42297710b7f9deeda4cb913c9e5ed395))
+
 ## [1.0.6](https://github.com/sam-dumont/musicgen-api/compare/v1.0.5...v1.0.6) (2026-03-10)
 
 
