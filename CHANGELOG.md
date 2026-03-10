@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.6](https://github.com/sam-dumont/musicgen-api/compare/v1.0.5...v1.0.6) (2026-03-10)
+
+
+### Bug Fixes
+
+* **ci:** add CI workflow for release-please bot PRs ([#23](https://github.com/sam-dumont/musicgen-api/issues/23)) ([9820ebd](https://github.com/sam-dumont/musicgen-api/commit/9820ebd58edb48406ea3bf4796f1c409e341cb1a))
+* **ci:** use release event for Docker image builds ([#21](https://github.com/sam-dumont/musicgen-api/issues/21)) ([260c147](https://github.com/sam-dumont/musicgen-api/commit/260c147129f84360ccf09c9bbcc4ac389ec8e523))
+
+
 ## [1.0.5](https://github.com/sam-dumont/musicgen-api/compare/v1.0.4...v1.0.5) (2026-03-10)
 
 
