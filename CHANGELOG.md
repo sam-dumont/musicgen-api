@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.5](https://github.com/sam-dumont/musicgen-api/compare/v1.0.4...v1.0.5) (2026-03-10)
+
+
+### Bug Fixes
+
+* pin PyTorch to cu126 index for Pascal GPU (sm_61) support ([#19](https://github.com/sam-dumont/musicgen-api/issues/19)) ([d54396c](https://github.com/sam-dumont/musicgen-api/commit/d54396c346822237f216ee1852d283f53923b73b))
+
 ## [1.0.4](https://github.com/sam-dumont/musicgen-api/compare/v1.0.3...v1.0.4) (2026-03-06)
 
 
