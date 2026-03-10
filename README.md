@@ -10,6 +10,22 @@ REST API for AI music generation and audio stem separation. Uses Meta's [MusicGe
 
 ---
 
+## Demo Samples
+
+These 60-second tracks were generated using the `/generate/soundtrack` endpoint with `musicgen-medium` (1.5B parameters) on a single GPU. Each uses two scenes with contrasting moods, crossfaded via the quality loop.
+
+| Sample | Prompt | Scenes |
+|--------|--------|--------|
+| [Acoustic Nostalgic](demos/acoustic-nostalgic.mp3) | warm acoustic guitar with soft piano, gentle and nostalgic | upbeat warm groovy → upbeat warm hopeful |
+| [Electronic EBM](demos/electronic-ebm.mp3) | dark electronic body music, heavy synthesizers, mechanical beats, industrial dance, cold wave | upbeat dark driving → upbeat dark pulsing |
+| [Cinematic Orchestral](demos/cinematic-orchestral.mp3) | cinematic orchestral soundtrack with sweeping strings, brass, and full orchestra, epic and emotional | upbeat bold powerful → upbeat triumphant epic |
+
+> **Tip for best results:** The base prompt anchors the style while scene moods control the energy. Bigger mood contrasts are possible but subtler shifts (e.g. "driving energetic" → "intense groovy") produce the smoothest transitions. This is how [immich-video-memory-generator](https://github.com/sam-dumont/immich-video-memory-generator) uses this API: all moods are forced to be upbeat with only small variations in flavor.
+
+> **Note:** GitHub doesn't embed audio players in markdown — click the links to download and listen, or clone the repo.
+
+---
+
 ## Features
 
 ### Music Generation
