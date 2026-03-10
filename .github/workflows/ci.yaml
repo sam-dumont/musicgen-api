@@ -2,9 +2,7 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
-      - 'release-please--*'  # Bot PRs don't trigger pull_request, run CI on push instead
+    branches: [main]
   pull_request:
     branches: [main]
 
