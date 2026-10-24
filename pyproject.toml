@@ -87,7 +87,7 @@ prod = [
     "musicgen-api[quality]",
 ]
 dev = [
-    "pytest>=7.0",
+    "pytest>=9.0.3",
     "pytest-asyncio>=0.21",
     "pytest-timeout>=2.0",
     "requests>=2.28",
