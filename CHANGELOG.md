@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.8](https://github.com/sam-dumont/musicgen-api/compare/v1.0.7...v1.0.8) (2026-11-03)
+
+
+### Documentation
+
+* agents read the project notes when a notes MCP is connected ([#49](https://github.com/sam-dumont/musicgen-api/issues/49)) ([c7079ae](https://github.com/sam-dumont/musicgen-api/commit/c7079ae5dd2db7b6e38e182c59b08caf95d3aa3f))
+
 ## [1.0.7](https://github.com/sam-dumont/musicgen-api/compare/v1.0.6...v1.0.7) (2026-03-10)
 
 
