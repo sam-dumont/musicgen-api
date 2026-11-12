@@ -1,5 +1,5 @@
 # Core ML dependencies - pinned versions for compatibility
-torch==2.8.0
+torch==2.13.0
 torchaudio==2.8.0
 
 # AudioCraft - installed without xformers on macOS

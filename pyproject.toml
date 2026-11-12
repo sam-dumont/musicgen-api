@@ -29,7 +29,7 @@ classifiers = [
 
 dependencies = [
     # Core ML - pinned for compatibility
-    "torch==2.8.0",
+    "torch==2.13.0",
     "torchaudio==2.8.0",
 
     # Audio processing
@@ -118,7 +118,7 @@ environments = ["sys_platform == 'darwin'", "sys_platform == 'linux'"]
 override-dependencies = [
     "xformers>=0.0.29; sys_platform == 'linux'",
     "av>=12.0.0",  # Override av==11.0.0 which doesn't build with ffmpeg 8.x
-    "torch==2.8.0",
+    "torch==2.13.0",
     "torchaudio==2.8.0",
     "transformers>=4.53.0",
     "torchvision>=0.23.0",  # Override audiocraft's torchvision==0.16.0
